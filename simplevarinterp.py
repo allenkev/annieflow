@@ -1,3 +1,5 @@
+#the par function will run the code after parsing it, use that to interpret the language
+
 def parse(s):
     chars="^<>?!"
     doublis=[(False,[])]
