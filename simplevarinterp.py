@@ -26,6 +26,7 @@ def parse(s):
         raise Exception()
     return doublis[0][1]
 
+#vals here is not actually part of the spec of the language but could be used anyway to initialize vars
 def run(p,**vals):
     doublis=[(0,p)]
     while len(doublis)>0:
