@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<canvas id="myCanvas" width="700" height="600"
+style="border:1px solid #c3c3c3;">
+Your browser does not support the HTML5 canvas tag.
+</canvas>
+
+<script>
+
+// AI Array, put in at least two constructor functions as described in the
+// data file, and it will do round robin on them.
+// Also, you can adjust some variables for testing purposes only.
+
+var interval = 1; // in milliseconds per turn
+
+var matches = 10; // number of matches for each pairing
+
+var aiArray = [];
+
+myAI = function (player1) {
+    this.player1 = player1;
+    this.yourMove = function (b) {
+        var me;
+        if (this.player1) { me = b.player1; }
+        else { me = b.player2; }
+        var d = 0;
+        var tokenP;
+        while (tokenP == undefined) {
+            var arr = this.findTokensAtDistance(me.pos, d)
+            tokenP = this.findBestToken(arr, b.tokens, me);
+            d += 1;
+        }
+        return this.startAndGoalToCommand(me.pos, tokenP);
+    }
+    this.findTokensAtDistance = function (p, d) {
+        if (d == 0) { return [[p[0], p[1]]]; }
+        var myArr = [];
+        for (i = 0; i <= d; i++) {
+            myArr[i] = [i, d - i];
+        }
+        var mySecArr = [];
+        for (i = 0; i <= d; i++) {
+            mySecArr[i] = [myArr[i][0] + p[0], myArr[i][1] + p[1]];
+        }
+        mySecArr[mySecArr.length] = [myArr[0][0] + p[0], -myArr[0][1] + p[1]];
+        for (i = 1; i < myArr.length - 1; i++) {
+            mySecArr[mySecArr.length] = [-myArr[i][0] + p[0], myArr[i][1] + p[1]]
+            mySecArr[mySecArr.length] = [myArr[i][0] + p[0], -myArr[i][1] + p[1]]
+            mySecArr[mySecArr.length] = [-myArr[i][0] + p[0], -myArr[i][1] + p[1]]
+        }
+        mySecArr[mySecArr.length] = [-myArr[myArr.length - 1][0] + p[0], myArr[myArr.length - 1][1] + p[1]];
+        return mySecArr;
+    }
+    this.findBestToken = function (arr, t, player) {
+        var tokenPos;
+        for (i = 0; i < arr.length; i++) {
+            if (arr[i][0] >= 0 && arr[i][0] < t.length
+                && arr[i][1] >= 0 && arr[i][1] < t.length) {
+                if (t[arr[i][0]][arr[i][1]] != false && ((tokenPos == undefined)
+                    || (this.tokenScore(player, t[arr[i][0]][arr[i][1]]) > this.tokenScore(player, t[tokenPos[0]][tokenPos[1]])))) {
+                    tokenPos = [arr[i][0], [arr[i][1]]];
+                }
+            }
+        }
+        return tokenPos;
+    }
+    this.tokenScore = function (player, token) {
+        if (player.lastColor == token.color) { return player.colorBonus + 1 + token.points;}
+        else { return token.points; }
+    }
+    this.startAndGoalToCommand = function (start, goal) {
+        var diff = [goal[0] - start[0], goal[1] - start[1]];
+        if (diff[0] > 0) { return "RIGHT"; }
+        else if (diff[1] > 0) { return "DOWN"; }
+        else if (diff[1] < 0) { return "UP"; }
+        else if (diff[0] < 0) { return "LEFT"; }
+        else { return "EAT"; }
+    }
+}
+
+aiArray[0] = myAI;
+aiArray[1] = myAI;
+
+// This is a really stupid AI, used to test that the round-robin selected
+// it as the worst by far
+myStupidAI = function (player1) {
+    this.player1 = player1;
+    this.yourMove = function (b) {
+        var me;
+        if (this.player1) { me = b.player1; }
+        else { me = b.player2; }
+        if (b.tokens[me.pos[0]][me.pos[1]] != false) {
+            return "EAT";
+        }
+        else {
+            var dirs = this.getViableDirections(b, me.pos);
+            var rand = Math.floor(Math.random() * dirs.length);
+            return dirs[rand];
+        }
+    }
+    this.getViableDirections = function (b, p) {
+        var dirs = [];
+        if (p[0] > 0) { dirs.push("LEFT"); }
+        if (p[1] > 0) { dirs.push("UP"); }
+        if (p[1] < b.tokens.length - 1) { dirs.push("DOWN"); }
+        if (p[0] < b.tokens.length - 1) { dirs.push("RIGHT"); }
+        return dirs;
+    }
+}
+
+aiArray[2] = myStupidAI;
+aiArray[3] = myStupidAI;
+
+for (i = 0; i < aiArray.length; i += 1) {
+    Object.freeze(aiArray[i]);
+}
+
+// This is the actual code to run the program. You shouldn't mess with it,
+// or your AI might not work during the actual competition.
+// Also note that you can't access this code at all in your AI.
+// Feel free to make suggestions and we'll try to incorporate them,
+// and let us know if something isn't working correctly.
+
+Object.freeze(aiArray);
+setInterval((function () {
+    function token(color, points) {
+        this.color = color;
+        this.points = points;
+    }
+
+    function player(pos, score, colorBonus, lastColor) {
+        this.pos = pos;
+        this.score = score;
+        this.colorBonus = colorBonus;
+        this.lastColor = lastColor;
+    }
+
+    function board(player1, player2, tokens) {
+        this.player1 = player1;
+        this.player2 = player2;
+        this.tokens = tokens;
+    }
+
+    function copyBoard(b) {
+        return new board(copyPlayer(b.player1), copyPlayer(b.player2), copyTokens(b.tokens));
+    }
+    function copyTokens(t) {
+        var tokens = [];
+        for (i = 0; i < t.length; i++) {
+            tokens[i] = [];
+            for (j = 0; j < t[i].length; j++) {
+                tokens[i][j] = t[i][j];
+            }
+        }
+        return tokens;
+    }
+    function copyPlayer(p) {
+        return new player([p.pos[0], p.pos[1]], p.score, p.colorBonus, p.lastColor);
+    }
+
+    function endGame(b) {
+        if (b.player1.score > b.player2.score) {
+            var c = document.getElementById("myCanvas");
+            var ctx = c.getContext("2d");
+            ctx.font = 20 + "px Arial";
+            ctx.textAlign = "left";
+            ctx.fillStyle = "#000000";
+            ctx.fillText("Player 1", 601, 160);
+            ctx.fillText("wins!", 601, 180);
+
+        }
+        else if (b.player1.score < b.player2.score) {
+            var c = document.getElementById("myCanvas");
+            var ctx = c.getContext("2d");
+            ctx.font = 20 + "px Arial";
+            ctx.textAlign = "left";
+            ctx.fillStyle = "#000000";
+            ctx.fillText("Player 2", 601, 160);
+            ctx.fillText("wins!", 601, 180);
+        }
+        else {
+            var c = document.getElementById("myCanvas");
+            var ctx = c.getContext("2d");
+            ctx.font = 20 + "px Arial";
+            ctx.textAlign = "left";
+            ctx.fillStyle = "#000000";
+            ctx.fillText("It's a", 601, 160);
+            ctx.fillText("draw!", 601, 180);
+        }
+    }
+
+    function genTokenArray(size) {
+        var temp = [];
+        for (i = 0; i < size; i++) {
+            temp[i] = [];
+            for (j = 0; j < size; j++) {
+                temp[i][j] = false;
+            }
+        }
+        return temp;
+    }
+    function genRandomTokenArray(size) {
+        var temp = genTokenArray(size);
+        for (i = 0; i < size * 2; i++) {
+            var rand = Math.floor(Math.random() * temp.length);
+            var points = Math.floor(Math.random() * 3 + 1);
+            var rand2 = Math.floor(Math.random() * 3);
+            var color;
+            var rand3 = Math.floor(Math.random() * temp[rand].length);
+            if (rand2 == 0) {color = "#FF0000"}
+            else if (rand2 == 1) {color = "#00FF00"}
+            else {color = "#0000FF"}
+            temp[rand][rand3] = new token(color, points);
+        }
+        return temp;
+    }
+    function countTokens(tokenArr) {
+        var x = 0;
+        for (i = 0; i < tokenArr.length; i++) {
+            for (j = 0; j < tokenArr[i].length; j++) {
+                if (tokenArr[i][j] != false) { x += 1 }
+            }
+        }
+        return x;
+    }
+    function actPlayer(b, p, s) {
+        if (s == "UP" && p.pos[1] > 0) { p.pos[1] -= 1; }
+        else if (s == "RIGHT" && p.pos[0] < b.tokens.length - 1) { p.pos[0] += 1; }
+        else if (s == "DOWN" && p.pos[1] < b.tokens.length - 1) { p.pos[1] += 1; }
+        else if (s == "LEFT" && p.pos[0] > 0) { p.pos[0] -= 1; }
+        else if (s == "EAT" && b.tokens[p.pos[0]][p.pos[1]] != false) {
+            if (p.lastColor == b.tokens[p.pos[0]][p.pos[1]].color) {
+                p.colorBonus += 1;
+                p.score += p.colorBonus;
+            }
+            else {
+                p.lastColor = b.tokens[p.pos[0]][p.pos[1]].color;
+                p.colorBonus = 0;
+            }
+            p.score += b.tokens[p.pos[0]][p.pos[1]].points;
+            b.tokens[p.pos[0]][p.pos[1]] = false;
+        }
+    }
+
+    function drawEmptyRect() {
+        var c=document.getElementById("myCanvas");
+        var ctx=c.getContext("2d");
+        ctx.clearRect(0,0,700,600);
+    }
+
+    function drawToken(t, x, y, g) {
+        drawEntity(x, y, t.points, t.color, "#000000", 300/g, g);
+    }
+
+    function drawLittleEntity(x, y, label, fillColor, labelColor, size, cX, cY, g) {
+        var delta = 600/g;
+        var x1 = x*delta + cX*delta/4;
+        var y1 = y*delta + cY*delta/4;
+        var c = document.getElementById("myCanvas");
+        var ctx = c.getContext("2d");
+        ctx.beginPath();
+        ctx.arc(x1, y1, size / 2, 0, 2*Math.PI);
+        ctx.stroke();
+        ctx.fillStyle = fillColor;
+        ctx.fill();
+        ctx.font = delta / 2 + "px Arial";
+        ctx.textAlign = "center";
+        ctx.fillStyle = labelColor;
+        ctx.fillText(label, x1, y1 + delta*3/16);
+    }
+
+    function drawEntity(x, y, label, fillColor, labelColor, size, g) {
+        var delta = 600/g;
+        var x1 = x*delta + delta/2;
+        var y1 = y*delta + delta/2;
+        var c = document.getElementById("myCanvas");
+        var ctx = c.getContext("2d");
+        ctx.beginPath();
+        ctx.arc(x1, y1, size, 0, 2*Math.PI);
+        ctx.stroke();
+        ctx.fillStyle = fillColor;
+        ctx.fill();
+        ctx.font = delta + "px Arial";
+        ctx.textAlign = "center";
+        ctx.fillStyle = labelColor;
+        ctx.fillText(label, x1, y1 + delta*3/8);
+    }
+
+
+    function drawAllTokens(arrToken) {
+        for (i = 0; i < arrToken.length; i++) {
+            for (j = 0; j < arrToken[i].length; j++) {
+                if (arrToken[i][j] != false) {
+                    drawToken(arrToken[i][j], i, j, arrToken.length);
+                }
+            }
+        }
+    }
+
+    function drawGrid(g) {
+        var delta = 600/g;
+        for (i = 0; i <= g; i++) {
+            var canvas = document.getElementById("myCanvas");
+            var ctx = canvas.getContext("2d");
+            ctx.beginPath();
+            ctx.moveTo(i*delta, 0);
+            ctx.lineTo(i*delta, 600);
+            ctx.stroke();
+        }
+
+        for (j = 0; j <= g; j++) {
+            var canvas = document.getElementById("myCanvas");
+            var ctx = canvas.getContext("2d");
+            ctx.beginPath();
+            ctx.moveTo(0, j*delta);
+            ctx.lineTo(600, j*delta);
+            ctx.stroke();
+        }
+    }
+
+    function drawPlayer1(b, g) {
+        drawLittleEntity(b.player1.pos[0], b.player1.pos[1], "F", "#000000", "#FFFFFF", 300/g, 1, 1, g);
+    }
+
+    function drawPlayer2(b, g) {
+        drawLittleEntity(b.player2.pos[0], b.player2.pos[1], "S", "#000000", "#FFFFFF", 300/g, 3, 3, g);
+    }
+
+    function drawScore(b) {
+        var canvas = document.getElementById("myCanvas");
+        var ctx = canvas.getContext("2d"); 
+        ctx.font = "20px Arial";
+        ctx.fillStyle = "#000000";
+        ctx.textAlign = "left";
+        ctx.fillText("P" + indices[0] + " Score:", 601, 50);
+        ctx.fillText(b.player1.score, 601, 70);
+        ctx.fillText("P" + indices[1] + " Score:", 601, 100);
+        ctx.fillText(b.player2.score, 601, 120); 
+    }
+
+    function drawScoreNum(s, i) {
+        var canvas = document.getElementById("myCanvas");
+        var ctx = canvas.getContext("2d"); 
+        ctx.font = "20px Arial";
+        ctx.fillStyle = "#000000";
+        ctx.textAlign = "left";
+        ctx.fillText("P" + i + " Score:", 601, i * 50 + 50);
+        ctx.fillText(s, 601, i * 50 + 70);
+    }
+
+    function redraw(b, g) {
+        drawEmptyRect();
+        drawGrid(g);
+        drawScore(b);
+        drawAllTokens(b.tokens);
+        drawPlayer1(b, g);
+        drawPlayer2(b, g);
+        drawScoreNum()
+    }
+
+    function nextPair(pair, total) {
+        var pairRes = [pair[0], (pair[1] + 1) % total];
+        if (pairRes[1] == 0) { pairRes[0] = pairRes[0] + 1; }
+        return pairRes;
+    }
+
+    function nextGameUnfair() {
+        scores[indices[0]] = scores[indices[0]] + currBoard.player1.score;
+        scores[indices[1]] = scores[indices[1]] + currBoard.player2.score;
+        if (matchCount >= matches) {
+            matchCount = 0;
+            indices = nextPair(indices, aiArray.length);
+            if (indices[0] == indices[1]) {
+                indices = nextPair(indices, aiArray.length);
+            }
+            if (indices[0] >= aiArray.length) { return false; }
+            player1Turn = true;
+            timeWithoutEating = 0;
+            firstAI = new aiArray[indices[0]](true);
+            secondAI = new aiArray[indices[1]](false);
+            currBoard = genBoard();
+        }
+        else {
+            matchCount++;
+            player1Turn = true;
+            timeWithoutEating = 0;
+            firstAI = new aiArray[indices[0]](true);
+            secondAI = new aiArray[indices[1]](false);
+            currBoard = genBoard();
+        }
+        return true;
+    }
+
+
+    function nextGameFair() {
+        scores[indices[0]] = scores[indices[0]] + currBoard.player1.score;
+        scores[indices[1]] = scores[indices[1]] + currBoard.player2.score;
+        indices = nextPair(indices, aiArray.length);
+        if (indices[0] == indices[1]) {
+           indices = nextPair(indices, aiArray.length);
+        }
+        if (indices[0] >= aiArray.length) {
+            indices = [0, 1];
+            matchCount++;
+            if (matchCount >= matches) { return false; }
+            player1Turn = true;
+            timeWithoutEating = 0;
+            currBoard = genBoard();
+        }
+        else {
+            player1Turn = true;
+            timeWithoutEating = 0;
+            currBoard = savedBoard;
+        }
+        firstAI = new aiArray[indices[0]](true);
+        secondAI = new aiArray[indices[1]](false);
+        savedBoard = copyBoard(currBoard);
+        return true;
+    }
+
+
+    function genBoard() {
+        var rand =  Math.floor(Math.random() * 11 + 5);
+        var randX = Math.floor(Math.random() * rand);
+        var randY = Math.floor(Math.random() * rand);
+        return new board(new player([randX, randY], 0, 0, "#000000"),
+                  new player([randX, randY], 0, 0, "#000000"),
+                  genRandomTokenArray(rand));
+    }
+    var running = true;
+    var indices = [0, 1];
+    var scores = []
+    for (i = 0; i < aiArray.length; i++) { scores.push(0); }
+    var matchCount = 0;
+    var firstAI = new aiArray[0](true);
+    var secondAI = new aiArray[1](false);
+    var player1Turn = true;
+    var currBoard = genBoard();
+    var savedBoard = copyBoard(currBoard);
+    var timeWithoutEating = 0;
+    return function () {
+        if (running) {
+            var numTokens = countTokens(currBoard.tokens);
+            if (numTokens <= 0) {}
+            else if (player1Turn) { actPlayer(currBoard, currBoard.player1, firstAI.yourMove(currBoard)); }
+            else { actPlayer(currBoard, currBoard.player2, secondAI.yourMove(currBoard)); }
+            player1Turn = !player1Turn;
+            redraw(currBoard, currBoard.tokens.length);
+            if (numTokens > countTokens(currBoard.tokens)) {
+                timeWithoutEating = 0;
+            }
+            else {
+                timeWithoutEating += 1;
+            }
+            if (numTokens <= 0 || timeWithoutEating > 4 * currBoard.tokens.length) { running = nextGameFair(); }
+        }
+        else {
+            drawEmptyRect();
+            for (i = 0; i < scores.length; i++) {
+                drawScoreNum(scores[i], i);
+            }
+        }
+    }
+})(), interval);
+
+</script>
+
+</body>
+</html>
